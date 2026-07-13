@@ -1,0 +1,33 @@
+{
+  "name": "@soyalfredo115/at-grid-angular",
+  "version": "0.1.0",
+  "description": "AtGrid — tabla declarativa con superpoderes (orden, filtros, agrupación, export Excel) para Angular standalone/signals",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "directory": "dist"
+  },
+  "scripts": {
+    "build": "ng-packagr -p ng-package.json",
+    "clean": "rimraf dist out-tsc"
+  },
+  "peerDependencies": {
+    "@angular/core": "^18.0.0 || ^19.0.0",
+    "@angular/common": "^18.0.0 || ^19.0.0"
+  },
+  "dependencies": {
+    "@soyalfredo115/at-grid-types": "^0.1.0",
+    "tslib": "^2.6.2"
+  },
+  "devDependencies": {
+    "@angular/common": "^18.2.0",
+    "@angular/compiler": "^18.2.0",
+    "@angular/compiler-cli": "^18.2.0",
+    "@angular/core": "^18.2.0",
+    "ng-packagr": "^18.2.0",
+    "rimraf": "^6.0.1",
+    "rxjs": "^7.8.1",
+    "typescript": "~5.5.4",
+    "zone.js": "^0.14.10"
+  }
+}

@@ -1,0 +1,109 @@
+/*
+ * AtGrid — CSS estructural (no relacionado a color/tema, ver arbitrary values
+ * con var() en AtGrid.tsx para eso). Columnas fijadas (sticky) en desktop y
+ * vista "tarjeta" en móvil. Portado de index.css del proyecto original
+ * (nunca se había copiado al paquete — sin esto, pin de columnas y la vista
+ * móvil no funcionaban).
+ */
+
+.at-table td.text-right {
+  white-space: nowrap;
+}
+
+/* ── Columnas fijadas (sticky, solo desktop) ────────────────────────── */
+@media (min-width: 1024px) {
+  .at-table .at-pin {
+    position: sticky;
+    z-index: 1;
+    background: var(--at-pin-bg, var(--surface, #fffefb));
+  }
+  .at-table thead .at-pin {
+    z-index: 2;
+  }
+  .at-table .at-pin-edge-l {
+    box-shadow: inset -1px 0 0 var(--border-2, #cec6b6);
+  }
+  .at-table .at-pin-edge-r {
+    box-shadow: inset 1px 0 0 var(--border-2, #cec6b6);
+  }
+}
+
+/* ── Tablas → Tarjetas en móvil ──────────────────────────────────────── */
+@media (max-width: 1023px) {
+  .at-table {
+    display: block;
+  }
+  .at-table thead {
+    display: none;
+  }
+  .at-table tbody {
+    display: block;
+  }
+  .at-table tfoot {
+    display: block;
+  }
+
+  .at-table tbody tr {
+    display: block;
+    margin-bottom: 8px;
+    border: 1px solid var(--border, #e0dace);
+    border-radius: 4px;
+    background: var(--surface, #fffefb);
+    overflow: hidden;
+  }
+  .at-table tbody tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .at-table tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border, #e0dace);
+    border-left: none !important;
+    text-align: right !important;
+    white-space: normal !important;
+    font-size: 13px !important;
+  }
+  .at-table tbody td:last-child {
+    border-bottom: none;
+  }
+
+  /* Etiqueta de columna (del data-label copiado desde <th>) */
+  .at-table tbody td[data-label]::before {
+    content: attr(data-label);
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-3, #a39b90);
+    flex-shrink: 0;
+    text-align: left;
+  }
+
+  .at-table tbody td .truncate {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    max-width: none;
+  }
+
+  .at-table tbody tr:active {
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  /* AtGrid: fila de grupo → barra compacta (sin celdas vacías) */
+  .at-table tbody tr.at-group {
+    background: var(--bg-2, #efebe2);
+    border-color: var(--border-2, #cec6b6);
+  }
+  .at-table tbody tr.at-group td {
+    border-bottom: none;
+    padding-left: 14px !important;
+  }
+  .at-table tbody tr.at-group td:empty {
+    display: none;
+  }
+}
