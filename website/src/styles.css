@@ -1,0 +1,687 @@
+/* ---------------------------------------------------------------------------
+   AtGrid — sitio de documentación
+   Monocromo estricto: tinta sobre papel (light) / fósforo sobre negro (dark).
+   Display: Martian Mono · Cuerpo y código: Spline Sans Mono
+--------------------------------------------------------------------------- */
+
+:root {
+  --font-display: 'Martian Mono', monospace;
+  --font-body: 'Spline Sans Mono', monospace;
+
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+  --space-4xl: 6rem;
+
+  --measure: 68ch;
+  --page-w: 72rem;
+}
+
+/* --- tema papel ---------------------------------------------------------- */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --site-bg: oklch(0.972 0.004 90);
+  --site-surface: oklch(0.988 0.003 90);
+  --site-ink: oklch(0.235 0.005 80);
+  --site-ink-2: oklch(0.45 0.006 80);
+  --site-ink-3: oklch(0.62 0.006 80);
+  --site-line: oklch(0.87 0.005 85);
+  --site-line-2: oklch(0.79 0.006 85);
+  --site-invert-bg: oklch(0.235 0.005 80);
+  --site-invert-ink: oklch(0.972 0.004 90);
+
+  /* variables que consume el propio AtGrid — re-temeado a monocromo */
+  --bg: oklch(0.972 0.004 90);
+  --bg-2: oklch(0.938 0.005 88);
+  --surface: oklch(0.988 0.003 90);
+  --border: oklch(0.87 0.005 85);
+  --border-2: oklch(0.79 0.006 85);
+  --text: oklch(0.235 0.005 80);
+  --text-2: oklch(0.45 0.006 80);
+  --text-3: oklch(0.62 0.006 80);
+  --primary: oklch(0.235 0.005 80);
+  --primary-dark: oklch(0.14 0.004 80);
+  --primary-tint: oklch(0.915 0.005 88);
+  --success: oklch(0.45 0.006 80);
+  --clay: oklch(0.45 0.006 80);
+}
+
+/* --- tema fósforo -------------------------------------------------------- */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --site-bg: oklch(0.175 0.004 80);
+  --site-surface: oklch(0.215 0.004 80);
+  --site-ink: oklch(0.92 0.005 90);
+  --site-ink-2: oklch(0.72 0.006 88);
+  --site-ink-3: oklch(0.54 0.005 85);
+  --site-line: oklch(0.31 0.005 80);
+  --site-line-2: oklch(0.39 0.005 80);
+  --site-invert-bg: oklch(0.92 0.005 90);
+  --site-invert-ink: oklch(0.175 0.004 80);
+
+  --bg: oklch(0.175 0.004 80);
+  --bg-2: oklch(0.235 0.004 80);
+  --surface: oklch(0.215 0.004 80);
+  --border: oklch(0.31 0.005 80);
+  --border-2: oklch(0.39 0.005 80);
+  --text: oklch(0.92 0.005 90);
+  --text-2: oklch(0.72 0.006 88);
+  --text-3: oklch(0.54 0.005 85);
+  --primary: oklch(0.92 0.005 90);
+  --primary-dark: oklch(0.98 0.003 90);
+  --primary-tint: oklch(0.29 0.005 82);
+  --success: oklch(0.72 0.006 88);
+  --clay: oklch(0.72 0.006 88);
+}
+
+/* --- base ---------------------------------------------------------------- */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+body {
+  margin: 0;
+  background: var(--site-bg);
+  color: var(--site-ink);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+::selection {
+  background: var(--site-ink);
+  color: var(--site-bg);
+}
+
+a {
+  color: inherit;
+}
+
+/* Reset mínimo: at-grid.css compila sin preflight, así que los controles
+   dentro del grid dependen de que la app anfitriona neutralice el estilo UA. */
+button {
+  font-family: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+input,
+select {
+  font-family: inherit;
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  line-height: 1.15;
+  margin: 0;
+}
+
+.wrap {
+  max-width: var(--page-w);
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 4vw, 2.5rem);
+}
+
+/* --- barra superior ------------------------------------------------------ */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in oklch, var(--site-bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--site-line);
+}
+
+.topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  height: 3.5rem;
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.brand .cursor-block {
+  display: inline-block;
+  width: 0.55em;
+  height: 1em;
+  background: var(--site-ink);
+  vertical-align: text-bottom;
+  margin-left: 0.15em;
+  animation: caret 1.1s steps(1) infinite;
+}
+
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+.topnav {
+  display: flex;
+  gap: var(--space-lg);
+  margin-left: auto;
+  font-size: 0.8rem;
+}
+
+.topnav a {
+  text-decoration: none;
+  color: var(--site-ink-2);
+  position: relative;
+  padding-block: 0.2rem;
+}
+
+.topnav a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 1px;
+  width: 100%;
+  background: var(--site-ink);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.topnav a:hover {
+  color: var(--site-ink);
+}
+
+.topnav a:hover::after {
+  transform: scaleX(1);
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 2rem;
+  padding-inline: 0.6rem;
+  background: transparent;
+  border: 1px solid var(--site-line-2);
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.icon-btn:hover {
+  background: var(--site-ink);
+  color: var(--site-bg);
+  border-color: var(--site-ink);
+}
+
+/* --- hero ----------------------------------------------------------------- */
+.hero {
+  padding-block: clamp(3rem, 8vw, 6rem) var(--space-3xl);
+  border-bottom: 1px solid var(--site-line);
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(16rem, 1fr);
+  gap: var(--space-3xl);
+  align-items: end;
+}
+
+.hero-kicker {
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--site-ink-3);
+  margin: 0 0 var(--space-lg);
+}
+
+.hero h1 {
+  font-size: clamp(2.2rem, 6vw, 4.2rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: var(--space-lg);
+}
+
+.hero-sub {
+  max-width: var(--measure);
+  color: var(--site-ink-2);
+  margin: 0;
+}
+
+.hero-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-size: 0.8rem;
+  border-top: 1px solid var(--site-line);
+}
+
+.hero-meta > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-block: var(--space-xs);
+  border-bottom: 1px solid var(--site-line);
+}
+
+.hero-meta dt {
+  color: var(--site-ink-3);
+  margin: 0;
+}
+
+.hero-meta dd {
+  margin: 0;
+  text-align: right;
+}
+
+.install-line {
+  margin-top: var(--space-xl);
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--site-line-2);
+  max-width: 34rem;
+}
+
+.install-line code {
+  flex: 1;
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.82rem;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.install-line code::before {
+  content: '$ ';
+  color: var(--site-ink-3);
+}
+
+.copy-btn {
+  border: 0;
+  border-left: 1px solid var(--site-line-2);
+  background: transparent;
+  padding-inline: var(--space-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.copy-btn:hover {
+  background: var(--site-ink);
+  color: var(--site-bg);
+}
+
+/* --- secciones ------------------------------------------------------------ */
+.section {
+  padding-block: var(--space-4xl);
+  border-bottom: 1px solid var(--site-line);
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  margin-bottom: var(--space-2xl);
+}
+
+.section-num {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  color: var(--site-ink-3);
+}
+
+.section-head h2 {
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.section-intro {
+  max-width: var(--measure);
+  color: var(--site-ink-2);
+  margin: calc(-1 * var(--space-lg)) 0 var(--space-2xl);
+}
+
+/* --- demo ------------------------------------------------------------------ */
+.demo-frame {
+  border: 1px solid var(--site-line-2);
+}
+
+.demo-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-md);
+  border-bottom: 1px solid var(--site-line-2);
+  font-size: 0.72rem;
+  color: var(--site-ink-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.demo-body {
+  padding: var(--space-md);
+  overflow-x: auto;
+  /* El mono del sitio es ancho; a 13px la tabla respira sin envolver celdas */
+  font-size: 0.8125rem;
+}
+
+.demo-body td,
+.demo-body th {
+  white-space: nowrap;
+}
+
+.demo-hints {
+  margin: var(--space-lg) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0 var(--space-xl);
+  font-size: 0.78rem;
+  color: var(--site-ink-2);
+}
+
+.demo-hints li {
+  padding-block: var(--space-xs);
+  border-bottom: 1px dashed var(--site-line);
+}
+
+.demo-hints kbd {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  border: 1px solid var(--site-line-2);
+  padding: 0 0.35em;
+  color: var(--site-ink);
+}
+
+/* --- características (lista manual, no cards) ------------------------------- */
+.feature-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: feat;
+}
+
+.feature-list li {
+  counter-increment: feat;
+  display: grid;
+  grid-template-columns: 3.5rem minmax(10rem, 18rem) 1fr;
+  gap: var(--space-lg);
+  padding-block: var(--space-md);
+  border-top: 1px solid var(--site-line);
+}
+
+.feature-list li:last-child {
+  border-bottom: 1px solid var(--site-line);
+}
+
+.feature-list li::before {
+  content: counter(feat, decimal-leading-zero);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  color: var(--site-ink-3);
+  padding-top: 0.15rem;
+}
+
+.feature-list h3 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.feature-list p {
+  margin: 0;
+  color: var(--site-ink-2);
+  font-size: 0.85rem;
+  max-width: var(--measure);
+}
+
+/* --- bloques de código ------------------------------------------------------ */
+.codeblock {
+  border: 1px solid var(--site-line-2);
+  margin-block: var(--space-lg);
+}
+
+.codeblock-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem var(--space-md);
+  border-bottom: 1px solid var(--site-line-2);
+  font-size: 0.72rem;
+  color: var(--site-ink-3);
+}
+
+.codeblock pre {
+  margin: 0;
+  padding: var(--space-md);
+  overflow-x: auto;
+  font-size: 0.8rem;
+  line-height: 1.65;
+}
+
+.codeblock code {
+  font-family: var(--font-body);
+}
+
+.code-comment {
+  color: var(--site-ink-3);
+}
+
+/* --- tabs ------------------------------------------------------------------- */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--site-line-2);
+  margin-bottom: var(--space-lg);
+}
+
+.tab {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: var(--space-xs) var(--space-md);
+  font-size: 0.8rem;
+  color: var(--site-ink-3);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.tab:hover {
+  color: var(--site-ink);
+}
+
+.tab[aria-selected='true'] {
+  color: var(--site-ink);
+  border-bottom-color: var(--site-ink);
+}
+
+/* --- tablas de API ------------------------------------------------------------ */
+.api-block {
+  margin-bottom: var(--space-3xl);
+}
+
+.api-block:last-child {
+  margin-bottom: 0;
+}
+
+.api-block h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: var(--space-xs);
+}
+
+.api-block > p {
+  max-width: var(--measure);
+  color: var(--site-ink-2);
+  font-size: 0.85rem;
+  margin: 0 0 var(--space-lg);
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.api-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.api-table th {
+  text-align: left;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--site-ink-3);
+  padding: var(--space-xs) var(--space-md) var(--space-xs) 0;
+  border-bottom: 1px solid var(--site-ink);
+  white-space: nowrap;
+}
+
+.api-table td {
+  padding: var(--space-xs) var(--space-md) var(--space-xs) 0;
+  border-bottom: 1px solid var(--site-line);
+  vertical-align: top;
+}
+
+.api-table td:first-child {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.api-table td.t-type {
+  color: var(--site-ink-2);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.api-table td.t-desc {
+  color: var(--site-ink-2);
+  min-width: 22rem;
+}
+
+.api-table code {
+  font-size: 0.95em;
+  background: var(--bg-2);
+  padding: 0 0.3em;
+}
+
+/* --- notas / avisos en línea (sin cards) -------------------------------------- */
+.note {
+  max-width: var(--measure);
+  font-size: 0.82rem;
+  color: var(--site-ink-2);
+  padding-top: var(--space-sm);
+  margin-top: var(--space-lg);
+  border-top: 1px dashed var(--site-line-2);
+}
+
+.note strong {
+  color: var(--site-ink);
+}
+
+/* --- footer -------------------------------------------------------------------- */
+.footer {
+  padding-block: var(--space-2xl);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md) var(--space-2xl);
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--site-ink-3);
+}
+
+.footer a {
+  color: var(--site-ink-2);
+}
+
+/* --- animaciones de entrada ------------------------------------------------------ */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0s);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .brand .cursor-block {
+    animation: none;
+  }
+}
+
+/* --- responsive -------------------------------------------------------------------- */
+@media (max-width: 60rem) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-2xl);
+  }
+
+  .feature-list li {
+    grid-template-columns: 2.5rem 1fr;
+  }
+
+  .feature-list p {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 40rem) {
+  .topnav {
+    display: none;
+  }
+
+  .topbar-actions {
+    margin-left: auto;
+  }
+}

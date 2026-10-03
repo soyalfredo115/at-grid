@@ -36,6 +36,15 @@ pnpm --filter at-grid-example-react dev
 pnpm --filter at-grid-example-angular start
 ```
 
+## Sitio web
+
+`website/` es la landing + documentación (demo en vivo, referencia de API, theming, modo claro/oscuro):
+
+```bash
+pnpm --filter at-grid-website dev    # desarrollo
+pnpm --filter at-grid-website build  # sitio estático en website/dist
+```
+
 ## Licencia
 
 MIT
