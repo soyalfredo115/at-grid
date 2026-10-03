@@ -62,7 +62,7 @@ export function Pagination({
   pageSizeOptions,
   onPageSizeChange,
 }: PaginationProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation('grid')
   if (pageCount <= 1 && !onPageSizeChange) return null
 
   const pageItems = buildPageItems(page, pageCount)

@@ -10,6 +10,19 @@
   white-space: nowrap;
 }
 
+/* ── Flash de celda al cambiar de valor (edición, paste, fill, undo/redo) ── */
+@keyframes at-cell-flash {
+  from {
+    background-color: var(--primary-tint, #f3e6df);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.at-table td.at-flash {
+  animation: at-cell-flash 900ms ease-out;
+}
+
 /* ── Columnas fijadas (sticky, solo desktop) ────────────────────────── */
 @media (min-width: 1024px) {
   .at-table .at-pin {
@@ -18,13 +31,25 @@
     background: var(--at-pin-bg, var(--surface, #fffefb));
   }
   .at-table thead .at-pin {
-    z-index: 2;
+    z-index: 3;
   }
   .at-table .at-pin-edge-l {
     box-shadow: inset -1px 0 0 var(--border-2, #cec6b6);
   }
   .at-table .at-pin-edge-r {
     box-shadow: inset 1px 0 0 var(--border-2, #cec6b6);
+  }
+
+  /* Header pegajoso: solo cuando la tabla tiene `height` (virtualizada) —
+     sin viewport acotado, sticky no tiene ancestro con scroll contra el que pegarse. */
+  .at-table.at-virtualized thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--paper, var(--surface, #fffefb));
+  }
+  .at-table.at-virtualized thead .at-pin {
+    z-index: 4;
   }
 }
 

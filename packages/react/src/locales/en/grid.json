@@ -31,6 +31,13 @@
   "exportarVisibles": "Visible rows (filtered)",
   "exportarSeleccion": "Selection only ({{n}})",
   "seleccionarTodo": "Select all",
+  "seleccionarFila": "Select row",
+  "seleccionarGrupo": "Select group",
+  "arrastrarRellenar": "Drag to fill",
+  "verDetalle": "View detail",
+  "filtroAvanzado": "Advanced filter",
+  "filtroAvanzadoPlaceholder": "cliente contains \"Acme\" and monto > 1000",
+  "filtroAvanzadoAyuda": "Operators: = != > >= < <= contains startswith endswith · connectors: and or not · group with ( )",
   "limpiarSeleccion": "Clear selection",
   "fijarIzq": "Pin left",
   "fijarDer": "Pin right",
@@ -38,5 +45,11 @@
   "ajustarContenido": "Fit to content",
   "copiarVisibles": "Copy visible rows",
   "copiarSeleccion": "Copy selection ({{n}})",
-  "copiado": "Copied"
+  "copiado": "Copied",
+  "pagination": {
+    "mostrando": "Showing {{from}}–{{to}} of {{total}}",
+    "porPagina": "per page",
+    "paginaAnterior": "Previous page",
+    "paginaSiguiente": "Next page"
+  }
 }
