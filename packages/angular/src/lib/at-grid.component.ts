@@ -247,7 +247,7 @@ const CHECKBOX_W = 40;
           }
           <tr>
             @if (selectable()) {
-              <th class="ag-th-checkbox" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--bg)')">
+              <th class="ag-th-checkbox" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--ag-bg)')">
                 <input
                   type="checkbox"
                   class="ag-checkbox"
@@ -317,10 +317,10 @@ const CHECKBOX_W = 40;
           @if (showFilters()) {
             <tr>
               @if (selectable()) {
-                <th class="ag-th-filter-blank" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--bg)')"></th>
+                <th class="ag-th-filter-blank" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--ag-bg)')"></th>
               }
               @for (col of displayCols(); track col.key) {
-                <th class="ag-th-filter" [class]="pinClass(col.key)" [ngStyle]="pinStyle(col.key, 'var(--bg)')">
+                <th class="ag-th-filter" [class]="pinClass(col.key)" [ngStyle]="pinStyle(col.key, 'var(--ag-bg)')">
                   @if (col.filterable !== false) {
                     @switch (filterTypeOf(col)) {
                       @case ('date') {
@@ -383,7 +383,7 @@ const CHECKBOX_W = 40;
                 (click)="focusIdx.set(pi); toggleExpand(item.node.path)"
               >
                 @if (selectable()) {
-                  <td class="ag-td-checkbox" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--bg-2)')" (click)="$event.stopPropagation()">
+                  <td class="ag-td-checkbox" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--ag-bg-2)')" (click)="$event.stopPropagation()">
                     <input
                       type="checkbox"
                       class="ag-checkbox"
@@ -406,7 +406,7 @@ const CHECKBOX_W = 40;
                       </span>
                     </td>
                   } @else {
-                    <td class="ag-td-group-agg" [class]="pinClass(col.key)" [ngStyle]="pinStyle(col.key, 'var(--bg-2)')">
+                    <td class="ag-td-group-agg" [class]="pinClass(col.key)" [ngStyle]="pinStyle(col.key, 'var(--ag-bg-2)')">
                       {{ aggCellText(col, item.node.rows) }}
                     </td>
                   }
@@ -422,7 +422,7 @@ const CHECKBOX_W = 40;
                 (click)="focusIdx.set(pi); rowClick.emit(item.row)"
               >
                 @if (selectable()) {
-                  <td class="ag-td-checkbox" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--surface)')" (click)="$event.stopPropagation()">
+                  <td class="ag-td-checkbox" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--ag-surface)')" (click)="$event.stopPropagation()">
                     <input type="checkbox" class="ag-checkbox" [checked]="selected().has(item.row)" (change)="toggleRow(item.row)" />
                   </td>
                 }
@@ -446,10 +446,10 @@ const CHECKBOX_W = 40;
           @if (hasFooter() && flatItems().length > 0) {
             <tr class="ag-footer-row">
               @if (selectable()) {
-                <td class="ag-td-checkbox" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--bg-2)')"></td>
+                <td class="ag-td-checkbox" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--ag-bg-2)')"></td>
               }
               @for (col of displayCols(); track col.key) {
-                <td class="ag-td-footer" [class.ag-td-footer-num]="col.numeric" [class]="pinClass(col.key)" [ngStyle]="pinStyle(col.key, 'var(--bg-2)')">
+                <td class="ag-td-footer" [class.ag-td-footer-num]="col.numeric" [class]="pinClass(col.key)" [ngStyle]="pinStyle(col.key, 'var(--ag-bg-2)')">
                   @if (footerTemplateMap().get(col.key); as tpl) {
                     <ng-container *ngTemplateOutlet="tpl; context: { $implicit: filteredRows(), rows: filteredRows() }"></ng-container>
                   }
@@ -597,27 +597,42 @@ const CHECKBOX_W = 40;
     `
       :host {
         display: block;
-        /* Defaults del tema — sobreescribir en el consumidor (:root o un
-           wrapper) para adaptar AtGrid al theme de la app. */
-        --bg: var(--bg, #f6f4ef);
-        --bg-2: var(--bg-2, #efebe2);
-        --surface: var(--surface, #fffefb);
-        --border: var(--border, #e0dace);
-        --border-2: var(--border-2, #cec6b6);
-        --text: var(--text, #1a1714);
-        --text-2: var(--text-2, #6b645c);
-        --text-3: var(--text-3, #a39b90);
-        --primary: var(--primary, #b8553a);
-        --primary-dark: var(--primary-dark, #93422c);
-        --primary-darker: var(--primary-darker, #7a3624);
-        --primary-light: var(--primary-light, #f3e6df);
-        --primary-tint: var(--primary-tint, #f3e6df);
-        --success: var(--success, #2f6b4f);
-        --radius: var(--radius, 4px);
-        --radius-sm: var(--radius-sm, 3px);
-        --radius-xs: var(--radius-xs, 2px);
-        --shadow-md: var(--shadow-md, 0 8px 24px -12px rgba(40, 30, 20, 0.4));
-        --ring-primary: var(--ring-primary, rgba(184, 85, 58, 0.25));
+        /* Tema: se leen --bg, --surface, --primary… del consumidor (:root o un
+           wrapper) y, si no existen, se usan estos valores. Internamente se usa
+           --ag-*: redefinir --bg con var(--bg) sería un ciclo y anularía el tema. */
+        --ag-bg: var(--bg, #f6f4ef);
+        --ag-bg-2: var(--bg-2, #efebe2);
+        --ag-surface: var(--surface, #fffefb);
+        --ag-border: var(--border, #e0dace);
+        --ag-border-2: var(--border-2, #cec6b6);
+        --ag-text: var(--text, #1a1714);
+        --ag-text-2: var(--text-2, #6b645c);
+        --ag-text-3: var(--text-3, #a39b90);
+        --ag-primary: var(--primary, #b8553a);
+        --ag-primary-dark: var(--primary-dark, #93422c);
+        --ag-primary-darker: var(--primary-darker, #7a3624);
+        --ag-primary-light: var(--primary-light, #f3e6df);
+        --ag-primary-tint: var(--primary-tint, #f3e6df);
+        --ag-success: var(--success, #2f6b4f);
+        --ag-radius: var(--radius, 4px);
+        --ag-radius-sm: var(--radius-sm, 3px);
+        --ag-radius-xs: var(--radius-xs, 2px);
+        --ag-shadow-md: var(--shadow-md, 0 8px 24px -12px rgba(40, 30, 20, 0.4));
+        --ag-ring-primary: var(--ring-primary, rgba(184, 85, 58, 0.25));
+      }
+
+      /* Las reglas globales de la app (p. ej. \`button { padding; background }\`) no deben
+         cambiar los controles internos: se parte de cero y cada clase pone lo suyo. */
+      button {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        line-height: inherit;
+        text-transform: none;
       }
 
       /* ── Toolbar ─────────────────────────────────────────────── */
@@ -635,23 +650,23 @@ const CHECKBOX_W = 40;
         flex-wrap: wrap;
         min-height: 32px;
         padding: 4px 10px;
-        border: 1px dashed var(--border-2);
-        border-radius: var(--radius-sm);
+        border: 1px dashed var(--ag-border-2);
+        border-radius: var(--ag-radius-sm);
         transition: 0.15s;
       }
       .ag-group-zone-hover {
-        border-color: var(--primary);
-        background: var(--primary-light);
+        border-color: var(--ag-primary);
+        background: var(--ag-primary-light);
       }
       .ag-group-zone-icon {
-        color: var(--text-3);
+        color: var(--ag-text-3);
         flex-shrink: 0;
       }
       .ag-group-zone-label {
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: var(--text-3);
+        color: var(--ag-text-3);
         font-weight: 700;
       }
       .ag-group-chip {
@@ -659,9 +674,9 @@ const CHECKBOX_W = 40;
         align-items: center;
         gap: 6px;
         padding: 2px 8px;
-        background: var(--primary-tint);
-        color: var(--primary-darker);
-        border-radius: var(--radius-xs);
+        background: var(--ag-primary-tint);
+        color: var(--ag-primary-darker);
+        border-radius: var(--ag-radius-xs);
         font-size: 11px;
         font-weight: 600;
       }
@@ -676,14 +691,14 @@ const CHECKBOX_W = 40;
       }
       .ag-group-zone-hint {
         font-size: 12px;
-        color: var(--text-3);
+        color: var(--ag-text-3);
         font-style: italic;
       }
       .ag-group-zone-select {
         font-size: 12px;
         background: transparent;
         border: none;
-        color: var(--text-3);
+        color: var(--ag-text-3);
         cursor: pointer;
       }
       .ag-toolbar-right {
@@ -702,22 +717,22 @@ const CHECKBOX_W = 40;
         left: 8px;
         top: 50%;
         transform: translateY(-50%);
-        color: var(--text-3);
+        color: var(--ag-text-3);
         pointer-events: none;
       }
       .ag-search-input {
         width: 160px;
         padding: 5px 24px 5px 26px;
         font-size: 12px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-xs);
-        background: var(--surface);
-        color: var(--text);
+        border: 1px solid var(--ag-border);
+        border-radius: var(--ag-radius-xs);
+        background: var(--ag-surface);
+        color: var(--ag-text);
         transition: 0.15s;
       }
       .ag-search-input:focus {
         outline: none;
-        border-color: var(--primary);
+        border-color: var(--ag-primary);
         width: 220px;
       }
       .ag-search-clear {
@@ -727,14 +742,14 @@ const CHECKBOX_W = 40;
         transform: translateY(-50%);
         background: none;
         border: none;
-        color: var(--text-3);
+        color: var(--ag-text-3);
         cursor: pointer;
         font-size: 13px;
         line-height: 1;
       }
       .ag-count {
         font-size: 12px;
-        color: var(--text-3);
+        color: var(--ag-text-3);
         margin-right: 4px;
         white-space: nowrap;
       }
@@ -746,17 +761,17 @@ const CHECKBOX_W = 40;
         height: 26px;
         border: none;
         background: transparent;
-        color: var(--text-3);
-        border-radius: var(--radius-xs);
+        color: var(--ag-text-3);
+        border-radius: var(--ag-radius-xs);
         cursor: pointer;
         transition: 0.15s;
       }
       .ag-icon-btn:hover {
-        color: var(--text);
-        background: var(--bg-2);
+        color: var(--ag-text);
+        background: var(--ag-bg-2);
       }
       .ag-icon-btn-active {
-        color: var(--primary);
+        color: var(--ag-primary);
       }
       .ag-link-btn {
         background: none;
@@ -765,12 +780,12 @@ const CHECKBOX_W = 40;
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: var(--primary);
+        color: var(--ag-primary);
         font-weight: 700;
         white-space: nowrap;
       }
       .ag-link-btn:hover {
-        color: var(--primary-dark);
+        color: var(--ag-primary-dark);
       }
       .ag-copied {
         display: inline-flex;
@@ -779,7 +794,7 @@ const CHECKBOX_W = 40;
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: var(--success);
+        color: var(--ag-success);
         white-space: nowrap;
       }
 
@@ -803,8 +818,8 @@ const CHECKBOX_W = 40;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: var(--text-2);
-        border-bottom: 1px solid var(--border);
+        color: var(--ag-text-2);
+        border-bottom: 1px solid var(--ag-border);
         text-align: left;
         white-space: nowrap;
         user-select: none;
@@ -816,7 +831,7 @@ const CHECKBOX_W = 40;
         cursor: pointer;
       }
       .ag-th-sortable:hover {
-        color: var(--text);
+        color: var(--ag-text);
       }
       .ag-th-dragging {
         opacity: 0.4;
@@ -825,7 +840,7 @@ const CHECKBOX_W = 40;
         margin-left: 4px;
       }
       .ag-sort-idle {
-        color: var(--text-3);
+        color: var(--ag-text-3);
       }
       .ag-sort-order {
         margin-left: 1px;
@@ -840,7 +855,7 @@ const CHECKBOX_W = 40;
         padding: 2px;
         border: none;
         background: none;
-        color: var(--text-3);
+        color: var(--ag-text-3);
         cursor: pointer;
         transition: 0.15s;
         border-radius: 3px;
@@ -850,11 +865,11 @@ const CHECKBOX_W = 40;
         opacity: 1;
       }
       .ag-th-menu-btn:hover {
-        color: var(--text);
-        background: var(--bg-2);
+        color: var(--ag-text);
+        background: var(--ag-bg-2);
       }
       .ag-th-menu-btn-open {
-        color: var(--primary);
+        color: var(--ag-primary);
       }
       .ag-th-resize {
         position: absolute;
@@ -875,16 +890,16 @@ const CHECKBOX_W = 40;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: var(--text-3);
+        color: var(--ag-text-3);
         white-space: nowrap;
       }
       .ag-th-group-labeled {
-        border-bottom: 1px solid var(--border-2);
+        border-bottom: 1px solid var(--ag-border-2);
       }
       .ag-th-blank,
       .ag-th-checkbox,
       .ag-th-filter-blank {
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid var(--ag-border);
       }
       .ag-th-checkbox {
         width: 40px;
@@ -892,13 +907,13 @@ const CHECKBOX_W = 40;
         text-align: center;
       }
       .ag-checkbox {
-        accent-color: var(--primary);
+        accent-color: var(--ag-primary);
         cursor: pointer;
       }
       .ag-th-filter {
         padding: 6px 10px;
-        border-bottom: 1px solid var(--border);
-        background: var(--bg);
+        border-bottom: 1px solid var(--ag-border);
+        background: var(--ag-bg);
         font-weight: 400;
       }
       .ag-filter-date {
@@ -911,14 +926,14 @@ const CHECKBOX_W = 40;
         min-width: 60px;
         padding: 4px 8px;
         font-size: 12px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-xs);
-        background: var(--surface);
-        color: var(--text);
+        border: 1px solid var(--ag-border);
+        border-radius: var(--ag-radius-xs);
+        background: var(--ag-surface);
+        color: var(--ag-text);
       }
       .ag-filter-input:focus {
         outline: none;
-        border-color: var(--primary);
+        border-color: var(--ag-primary);
       }
       .ag-filter-set-btn {
         display: flex;
@@ -929,12 +944,12 @@ const CHECKBOX_W = 40;
         text-align: left;
       }
       .ag-filter-active {
-        border-color: var(--primary);
-        color: var(--primary-darker);
+        border-color: var(--ag-primary);
+        color: var(--ag-primary-darker);
       }
       .ag-filter-set-total {
         font-size: 10px;
-        color: var(--text-3);
+        color: var(--ag-text-3);
         flex-shrink: 0;
       }
       .ag-truncate {
@@ -948,31 +963,31 @@ const CHECKBOX_W = 40;
         padding: 2.5rem;
         text-align: center;
         font-size: 13px;
-        color: var(--text-3);
-        border-bottom: 1px solid var(--border);
+        color: var(--ag-text-3);
+        border-bottom: 1px solid var(--ag-border);
       }
       .ag-row {
         transition: background 0.1s;
         cursor: pointer;
       }
       .ag-row:hover td {
-        background: var(--primary-light);
+        background: var(--ag-primary-light);
       }
       .ag-row-selected td {
-        background: var(--primary-light);
+        background: var(--ag-primary-light);
       }
       .ag-row-focused td:first-child {
-        box-shadow: inset 2px 0 0 var(--primary);
+        box-shadow: inset 2px 0 0 var(--ag-primary);
       }
       .ag-td {
         padding: 0.85rem 1rem;
         font-size: 13px;
-        color: var(--text-2);
-        border-bottom: 1px solid var(--border);
+        color: var(--ag-text-2);
+        border-bottom: 1px solid var(--ag-border);
         vertical-align: middle;
       }
       .ag-td-strong {
-        color: var(--text);
+        color: var(--ag-text);
         font-weight: 600;
       }
       .ag-td-right {
@@ -984,8 +999,8 @@ const CHECKBOX_W = 40;
         text-align: right;
         font-variant-numeric: tabular-nums;
         font-weight: 500;
-        color: var(--text);
-        border-bottom: 1px solid var(--border);
+        color: var(--ag-text);
+        border-bottom: 1px solid var(--ag-border);
         white-space: nowrap;
       }
       .ag-clip {
@@ -996,19 +1011,19 @@ const CHECKBOX_W = 40;
         width: 40px;
         padding: 0.85rem;
         text-align: center;
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid var(--ag-border);
       }
       .ag-group-row {
         cursor: pointer;
-        background: var(--bg-2);
+        background: var(--ag-bg-2);
         user-select: none;
       }
       .ag-group-row:hover {
-        background: var(--bg);
+        background: var(--ag-bg);
       }
       .ag-td-group-label {
         padding: 0.6rem 1rem;
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid var(--ag-border);
         white-space: nowrap;
       }
       .ag-group-label-inner {
@@ -1017,7 +1032,7 @@ const CHECKBOX_W = 40;
         gap: 8px;
       }
       .ag-chevron {
-        color: var(--text-3);
+        color: var(--ag-text-3);
         transition: transform 0.15s;
         flex-shrink: 0;
       }
@@ -1028,34 +1043,34 @@ const CHECKBOX_W = 40;
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: var(--text-3);
+        color: var(--ag-text-3);
       }
       .ag-group-value {
         font-size: 13px;
         font-weight: 600;
-        color: var(--text);
+        color: var(--ag-text);
       }
       .ag-group-count {
         font-size: 12px;
-        color: var(--text-3);
+        color: var(--ag-text-3);
       }
       .ag-td-group-agg {
         padding: 0.6rem 1rem;
         text-align: right;
         font-variant-numeric: tabular-nums;
         font-weight: 500;
-        color: var(--text);
-        border-bottom: 1px solid var(--border);
+        color: var(--ag-text);
+        border-bottom: 1px solid var(--ag-border);
         white-space: nowrap;
       }
       .ag-footer-row td {
-        background: var(--bg-2);
+        background: var(--ag-bg-2);
         font-weight: 600;
-        color: var(--text);
+        color: var(--ag-text);
       }
       .ag-td-footer {
         padding: 0.85rem 1rem;
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid var(--ag-border);
       }
       .ag-td-footer-num {
         text-align: right;
@@ -1068,16 +1083,16 @@ const CHECKBOX_W = 40;
         .ag-pin {
           position: sticky;
           z-index: 1;
-          background: var(--at-pin-bg, var(--surface));
+          background: var(--at-pin-bg, var(--ag-surface));
         }
         thead .ag-pin {
           z-index: 2;
         }
         .ag-pin-edge-l {
-          box-shadow: inset -1px 0 0 var(--border-2);
+          box-shadow: inset -1px 0 0 var(--ag-border-2);
         }
         .ag-pin-edge-r {
-          box-shadow: inset 1px 0 0 var(--border-2);
+          box-shadow: inset 1px 0 0 var(--ag-border-2);
         }
       }
 
@@ -1096,9 +1111,9 @@ const CHECKBOX_W = 40;
         .ag-table tbody tr.ag-group-row {
           display: block;
           margin-bottom: 8px;
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          background: var(--surface);
+          border: 1px solid var(--ag-border);
+          border-radius: var(--ag-radius);
+          background: var(--ag-surface);
           overflow: hidden;
         }
         .ag-table tbody tr:last-child {
@@ -1110,7 +1125,7 @@ const CHECKBOX_W = 40;
           justify-content: space-between;
           gap: 8px;
           padding: 8px 12px;
-          border-bottom: 1px solid var(--border);
+          border-bottom: 1px solid var(--ag-border);
           text-align: right !important;
           white-space: normal !important;
           font-size: 12.5px !important;
@@ -1124,7 +1139,7 @@ const CHECKBOX_W = 40;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.1em;
-          color: var(--text-3);
+          color: var(--ag-text-3);
           flex-shrink: 0;
           text-align: left;
         }
@@ -1147,13 +1162,13 @@ const CHECKBOX_W = 40;
         gap: 1rem;
         flex-wrap: wrap;
         padding: 0.6rem 1.25rem;
-        border-top: 1px solid var(--border);
-        background: var(--bg-2);
+        border-top: 1px solid var(--ag-border);
+        background: var(--ag-bg-2);
       }
       .ag-selection-count {
         font-size: 12px;
         font-weight: 600;
-        color: var(--text);
+        color: var(--ag-text);
       }
       .ag-selection-actions {
         display: flex;
@@ -1176,12 +1191,12 @@ const CHECKBOX_W = 40;
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: var(--text-3);
+        color: var(--ag-text-3);
       }
       .ag-selection-agg-value {
         font-size: 14px;
         font-weight: 600;
-        color: var(--text);
+        color: var(--ag-text);
         font-variant-numeric: tabular-nums;
       }
 
@@ -1196,44 +1211,44 @@ const CHECKBOX_W = 40;
         text-align: left;
         background: none;
         border: none;
-        color: var(--text-2);
+        color: var(--ag-text-2);
         cursor: pointer;
         transition: 0.12s;
       }
       .ag-menu-item:hover:not(:disabled) {
-        background: var(--bg-2);
-        color: var(--text);
+        background: var(--ag-bg-2);
+        color: var(--ag-text);
       }
       .ag-menu-item:disabled {
-        color: var(--text-3);
+        color: var(--ag-text-3);
         opacity: 0.55;
         cursor: default;
       }
       .ag-menu-item-active {
-        color: var(--primary);
-        background: var(--primary-light);
+        color: var(--ag-primary);
+        background: var(--ag-primary-light);
       }
       .ag-menu-item-tag {
         margin-left: auto;
         font-size: 9px;
-        color: var(--text-3);
+        color: var(--ag-text-3);
         text-transform: uppercase;
         letter-spacing: 0.08em;
       }
       .ag-menu-sep {
         margin: 4px 0;
-        border-top: 1px solid var(--border);
+        border-top: 1px solid var(--ag-border);
       }
       .ag-dot {
         display: inline-block;
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background: var(--border-2);
+        background: var(--ag-border-2);
         flex-shrink: 0;
       }
       .ag-dot-on {
-        background: var(--primary);
+        background: var(--ag-primary);
       }
       .ag-set-search {
         padding: 4px 10px 6px;
@@ -1251,16 +1266,16 @@ const CHECKBOX_W = 40;
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: var(--primary);
+        color: var(--ag-primary);
         font-weight: 700;
       }
       .ag-set-action-muted {
-        color: var(--text-3);
+        color: var(--ag-text-3);
       }
       .ag-set-list {
         max-height: 220px;
         overflow-y: auto;
-        border-top: 1px solid var(--border);
+        border-top: 1px solid var(--ag-border);
       }
       .ag-set-row {
         display: flex;
@@ -1268,21 +1283,21 @@ const CHECKBOX_W = 40;
         gap: 8px;
         padding: 6px 12px;
         font-size: 12.5px;
-        color: var(--text-2);
+        color: var(--ag-text-2);
         cursor: pointer;
       }
       .ag-set-row:hover {
-        background: var(--bg-2);
+        background: var(--ag-bg-2);
       }
       .ag-set-row-count {
         margin-left: auto;
         font-size: 10px;
-        color: var(--text-3);
+        color: var(--ag-text-3);
       }
       .ag-set-empty {
         padding: 12px;
         font-size: 12px;
-        color: var(--text-3);
+        color: var(--ag-text-3);
         font-style: italic;
         text-align: center;
       }
@@ -1681,18 +1696,18 @@ export class AtGridComponent<T> implements OnInit, AfterContentInit {
     return this.checkboxSticky() ? 'ag-pin' : '';
   }
   thStyle(col: AtGridColumn<T>): Record<string, string> {
-    const style = this.pinStyle(col.key, 'var(--bg)');
+    const style = this.pinStyle(col.key, 'var(--ag-bg)');
     const dt = this.dropTarget();
     if (dt?.key === col.key) {
-      style['box-shadow'] = `inset ${dt.side === 'left' ? '2px' : '-2px'} 0 0 var(--primary)`;
+      style['box-shadow'] = `inset ${dt.side === 'left' ? '2px' : '-2px'} 0 0 var(--ag-primary)`;
     }
     return style;
   }
   groupLabelStyle(colKey: string, depth: number): Record<string, string> {
-    return { ...this.pinStyle(colKey, 'var(--bg-2)'), 'padding-left': 32 + depth * 20 + 'px' };
+    return { ...this.pinStyle(colKey, 'var(--ag-bg-2)'), 'padding-left': 32 + depth * 20 + 'px' };
   }
   dataCellStyle(colKey: string, depth: number): Record<string, string> {
-    const style = this.pinStyle(colKey, 'var(--surface)');
+    const style = this.pinStyle(colKey, 'var(--ag-surface)');
     if (depth > 0) style['padding-left'] = 32 + depth * 20 + 'px';
     return style;
   }
