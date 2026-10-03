@@ -6,7 +6,9 @@ export {
   AtGridCellDirective,
   AtGridFooterDirective,
   AtGridSelectionActionsDirective,
+  AtGridCellEditorDirective,
 } from './lib/at-grid-templates.directive';
+export { AtGridCellEditorComponent } from './lib/at-grid-cell-editor.component';
 export { downloadXlsx, makeXlsx } from './lib/at-grid-xlsx';
 export type { XlsxCell } from './lib/at-grid-xlsx';
 
@@ -22,4 +24,6 @@ export type {
   FlatItem,
   PopoverKind,
   PopoverState,
+  AtGridCellValueChanged,
+  EditHistoryEntry,
 } from './lib/at-grid.types';

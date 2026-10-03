@@ -15,6 +15,7 @@ export type {
   AtGridAggregate,
   SortState,
   ColumnFilterValue,
+  MultiFilterValue,
   PinSide,
   GroupNode,
   FlatItem,
@@ -49,6 +50,35 @@ export interface AtGridColumn<T> {
   tdClassName?: string;
   /** Clases condicionales por celda según la fila (p. ej. negativos en rojo). */
   cellClass?: (row: T) => string | false | null | undefined;
+  /** Habilita edición inline en esta celda (doble click, F2, o `cellValueChanged` en la tabla). Puede condicionarse por fila. */
+  editable?: boolean | ((row: T) => boolean);
+  /** Tipo de editor por defecto. `'select'` usa `editorOptions`. Sin definir: `'number'` si `numeric`, si no `'text'`. Para un editor 100% custom, proyectar `<ng-template atGridCellEditor="key" ...>`. */
+  editorType?: 'text' | 'number' | 'date' | 'select';
+  /** Opciones para `editorType: 'select'`. */
+  editorOptions?: (string | { value: string; label: string })[];
+  /** Valor string inicial mostrado en el editor (default: el valor crudo de la celda). */
+  editValue?: (row: T) => string;
+  /** Parsea el string del editor al tipo real de la columna (default: número si `numeric`/`'number'`, si no el string tal cual). */
+  valueParser?: (raw: string, row: T) => unknown;
+  /** Construye la fila con el nuevo valor (default: `{ ...row, [key]: value }`). */
+  valueSetter?: (row: T, value: unknown) => T;
+}
+
+/** Parámetros de `cellValueChanged`: la tabla es controlada, no muta `rows` — el consumidor aplica `newRow` a su estado. */
+export interface AtGridCellValueChanged<T> {
+  row: T;
+  rowIndex: number;
+  col: AtGridColumn<T>;
+  oldValue: unknown;
+  newValue: unknown;
+  newRow: T;
+}
+
+export interface EditHistoryEntry {
+  rowId: string | number;
+  colKey: string;
+  oldValue: unknown;
+  newValue: unknown;
 }
 
 export interface PersistedState {

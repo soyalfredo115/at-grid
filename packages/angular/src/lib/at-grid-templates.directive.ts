@@ -51,3 +51,27 @@ export class AtGridFooterDirective<T = unknown> {
 export class AtGridSelectionActionsDirective<T = unknown> {
   constructor(public readonly tpl: TemplateRef<{ $implicit: T[]; rows: T[] }>) {}
 }
+
+/**
+ * Editor 100% custom para una columna editable (reemplaza el input/select por
+ * defecto de la edición inline). Debe llamar `onCommit`/`onCancel` del contexto.
+ *
+ *   <ng-template atGridCellEditor="estado" let-value let-row="row" let-onCommit="onCommit" let-onCancel="onCancel">
+ *     <select [ngModel]="value" (ngModelChange)="onCommit($event)">...</select>
+ *   </ng-template>
+ */
+@Directive({
+  selector: 'ng-template[atGridCellEditor]',
+  standalone: true,
+})
+export class AtGridCellEditorDirective<T = unknown> {
+  @Input('atGridCellEditor') key = '';
+  constructor(
+    public readonly tpl: TemplateRef<{
+      $implicit: unknown;
+      row: T;
+      onCommit: (value: unknown) => void;
+      onCancel: () => void;
+    }>
+  ) {}
+}

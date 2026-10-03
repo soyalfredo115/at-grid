@@ -19,10 +19,13 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { AtGridCellEditorComponent } from './at-grid-cell-editor.component';
+import type { CellEditorCommit } from './at-grid-cell-editor.component';
 import { AtGridPaginationComponent } from './at-grid-pagination.component';
 import { AtGridPopoverComponent } from './at-grid-popover.component';
 import {
   AtGridCellDirective,
+  AtGridCellEditorDirective,
   AtGridFooterDirective,
   AtGridSelectionActionsDirective,
 } from './at-grid-templates.directive';
@@ -32,10 +35,12 @@ import {
   cellRaw,
   clearPersisted,
   compareValues,
+  defaultParseEdit,
   filterIsActive,
   filterTypeOf,
   filterVal,
   groupVal,
+  isMultiFilterValue,
   loadPersisted,
   numVal,
   reconcileOrder,
@@ -44,8 +49,10 @@ import {
   sortVal,
 } from './at-grid.helpers';
 import type {
+  AtGridCellValueChanged,
   AtGridColumn,
   ColumnFilterValue,
+  EditHistoryEntry,
   FlatItem,
   GroupNode,
   PersistedState,
@@ -57,6 +64,26 @@ import type {
 
 const DEFAULT_COL_W = 140;
 const CHECKBOX_W = 40;
+const ROW_H = 45;
+const GROUP_ROW_H = 41;
+const OVERSCAN = 8;
+
+function itemHeightOf<T>(item: FlatItem<T>): number {
+  return item.type === 'group' ? GROUP_ROW_H : ROW_H;
+}
+
+/** Índice del último item cuyo offset acumulado es <= y (offsets tiene length = items.length + 1). */
+function offsetIndexAt(offsets: number[], y: number): number {
+  let lo = 0;
+  let hi = offsets.length - 2;
+  if (hi < 0) return 0;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (offsets[mid] <= y) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
 
 /**
  * AtGrid — tabla declarativa con superpoderes, 100% código propio.
@@ -92,7 +119,7 @@ const CHECKBOX_W = 40;
 @Component({
   selector: 'at-grid',
   standalone: true,
-  imports: [NgStyle, NgTemplateOutlet, AtGridPaginationComponent, AtGridPopoverComponent],
+  imports: [NgStyle, NgTemplateOutlet, AtGridPaginationComponent, AtGridPopoverComponent, AtGridCellEditorComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="ag-toolbar">
@@ -222,8 +249,27 @@ const CHECKBOX_W = 40;
       </div>
     </div>
 
-    <div class="ag-table-wrap" tabindex="0" (keydown)="onGridKeyDown($event)" (blur)="focusIdx.set(null)">
-      <table #tableEl class="ag-table" [style.tableLayout]="fixedLayout() ? 'fixed' : null">
+    <div
+      #wrapEl
+      class="ag-table-wrap"
+      [style.height.px]="virtualized() ? height() : null"
+      [style.overflowY]="virtualized() ? 'auto' : null"
+      [attr.tabindex]="activeCell() === null ? 0 : -1"
+      (keydown)="onGridKeyDown($event)"
+      (scroll)="onTableScroll($event)"
+      (focus)="onWrapFocus($event)"
+      (blur)="onWrapBlur($event)"
+    >
+      <table
+        #tableEl
+        class="ag-table"
+        [class.ag-virtualized]="virtualized()"
+        role="grid"
+        [attr.aria-rowcount]="flatItems().length + headerRowCount()"
+        [attr.aria-colcount]="colCount()"
+        [attr.aria-multiselectable]="selectable() || null"
+        [style.tableLayout]="fixedLayout() ? 'fixed' : null"
+      >
         @if (fixedLayout()) {
           <colgroup>
             @if (selectable()) {
@@ -236,18 +282,18 @@ const CHECKBOX_W = 40;
         }
         <thead>
           @if (headerGroupRuns(); as runs) {
-            <tr>
+            <tr role="row">
               @if (selectable()) {
-                <th class="ag-th-blank"></th>
+                <th class="ag-th-blank" role="columnheader"></th>
               }
               @for (run of runs; track $index) {
-                <th [attr.colspan]="run.span" class="ag-th-group" [class.ag-th-group-labeled]="run.label">{{ run.label }}</th>
+                <th [attr.colspan]="run.span" role="columnheader" class="ag-th-group" [class.ag-th-group-labeled]="run.label">{{ run.label }}</th>
               }
             </tr>
           }
-          <tr>
+          <tr role="row">
             @if (selectable()) {
-              <th class="ag-th-checkbox" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--bg)')">
+              <th class="ag-th-checkbox" role="columnheader" [attr.aria-colindex]="1" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--bg)')">
                 <input
                   type="checkbox"
                   class="ag-checkbox"
@@ -256,12 +302,16 @@ const CHECKBOX_W = 40;
                   (click)="$event.stopPropagation()"
                   (change)="toggleRows(filteredRows())"
                   title="Seleccionar todo"
+                  aria-label="Seleccionar todo"
                 />
               </th>
             }
-            @for (col of displayCols(); track col.key) {
+            @for (col of displayCols(); track col.key; let ci = $index) {
               <th
                 [attr.data-colkey]="col.key"
+                role="columnheader"
+                [attr.aria-sort]="ariaSortFor(col)"
+                [attr.aria-colindex]="ci + 1 + (selectable() ? 1 : 0)"
                 [draggable]="resizing() === null"
                 (dragstart)="onHeaderDragStart($event, col.key)"
                 (dragover)="onHeaderDragOver($event, col.key)"
@@ -315,12 +365,12 @@ const CHECKBOX_W = 40;
             }
           </tr>
           @if (showFilters()) {
-            <tr>
+            <tr role="row">
               @if (selectable()) {
-                <th class="ag-th-filter-blank" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--bg)')"></th>
+                <th class="ag-th-filter-blank" role="columnheader" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--bg)')"></th>
               }
               @for (col of displayCols(); track col.key) {
-                <th class="ag-th-filter" [class]="pinClass(col.key)" [ngStyle]="pinStyle(col.key, 'var(--bg)')">
+                <th class="ag-th-filter" role="columnheader" [class]="pinClass(col.key)" [ngStyle]="pinStyle(col.key, 'var(--bg)')">
                   @if (col.filterable !== false) {
                     @switch (filterTypeOf(col)) {
                       @case ('date') {
@@ -368,88 +418,181 @@ const CHECKBOX_W = 40;
             </tr>
           }
         </thead>
-        <tbody (mouseover)="handleCellMouseOver($event)">
+        <tbody (mouseover)="handleCellMouseOver($event)" role="rowgroup">
           @if (flatItems().length === 0) {
-            <tr>
-              <td class="ag-empty" [attr.colspan]="displayCols().length + (selectable() ? 1 : 0)">Sin resultados</td>
+            <tr role="row">
+              <td class="ag-empty" role="gridcell" [attr.colspan]="colCount()">Sin resultados</td>
+            </tr>
+          }
+          @if (virtualized() && topPad() > 0) {
+            <tr aria-hidden="true" [style.height.px]="topPad()">
+              <td [attr.colspan]="colCount()" style="padding: 0; border: 0"></td>
             </tr>
           }
           @for (item of pageItems(); track flatItemKey(item); let pi = $index) {
-            @if (item.type === 'group') {
-              <tr
-                [attr.data-ridx]="pi"
-                class="ag-group-row"
-                [class.ag-row-focused]="focusIdx() === pi"
-                (click)="focusIdx.set(pi); toggleExpand(item.node.path)"
-              >
-                @if (selectable()) {
-                  <td class="ag-td-checkbox" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--bg-2)')" (click)="$event.stopPropagation()">
-                    <input
-                      type="checkbox"
-                      class="ag-checkbox"
-                      [checked]="groupAllSelected(item.node)"
-                      [indeterminate]="groupSomeSelected(item.node)"
-                      (change)="toggleRows(item.node.rows)"
-                    />
-                  </td>
-                }
-                @for (col of displayCols(); track col.key; let ci = $index) {
-                  @if (ci === 0) {
-                    <td class="ag-td-group-label" [class]="pinClass(col.key)" [ngStyle]="groupLabelStyle(col.key, item.node.depth)">
-                      <span class="ag-group-label-inner">
-                        <svg class="ag-chevron" [class.ag-chevron-open]="expanded().has(item.node.path)" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                          <polyline points="9,5 16,12 9,19"></polyline>
-                        </svg>
-                        <span class="ag-group-col-label">{{ groupColLabel(item.node.colKey) }}</span>
-                        <span class="ag-group-value">{{ item.node.value }}</span>
-                        <span class="ag-group-count">· {{ item.node.rows.length }}</span>
-                      </span>
-                    </td>
-                  } @else {
-                    <td class="ag-td-group-agg" [class]="pinClass(col.key)" [ngStyle]="pinStyle(col.key, 'var(--bg-2)')">
-                      {{ aggCellText(col, item.node.rows) }}
+            @if (!virtualized() || (pi >= startIdx() && pi < endIdx())) {
+              @if (item.type === 'group') {
+                <tr
+                  [attr.data-ridx]="pi"
+                  role="row"
+                  [attr.aria-expanded]="expanded().has(item.node.path)"
+                  [attr.aria-level]="item.node.depth + 1"
+                  [attr.aria-rowindex]="rowIndexOf(pi)"
+                  class="ag-group-row"
+                  [class.ag-row-focused]="activeCell()?.ri === pi"
+                  (click)="onGroupRowClick($event, pi, item.node)"
+                >
+                  @if (selectable()) {
+                    <td
+                      role="gridcell"
+                      [attr.data-ridx]="pi"
+                      [attr.data-cidx]="-1"
+                      [attr.aria-colindex]="1"
+                      [tabIndex]="cellTabIndex(pi, -1)"
+                      class="ag-td-checkbox"
+                      [class]="checkboxPinClass()"
+                      [ngStyle]="checkboxPinStyle('var(--bg-2)')"
+                      [style.outline]="isActiveCell(pi, -1) ? '2px solid var(--primary)' : null"
+                      [style.outlineOffset.px]="isActiveCell(pi, -1) ? -2 : null"
+                      (click)="$event.stopPropagation()"
+                    >
+                      <input
+                        type="checkbox"
+                        class="ag-checkbox"
+                        [checked]="groupAllSelected(item.node)"
+                        [indeterminate]="groupSomeSelected(item.node)"
+                        (change)="toggleRows(item.node.rows)"
+                        aria-label="Seleccionar grupo"
+                        tabindex="-1"
+                      />
                     </td>
                   }
-                }
-              </tr>
-            } @else {
-              <tr
-                [attr.data-ridx]="pi"
-                class="ag-row"
-                [class.ag-row-selected]="selectable() && selected().has(item.row)"
-                [class.ag-row-focused]="focusIdx() === pi"
-                [class]="rowClassName() ? rowClassName()!(item.row) : ''"
-                (click)="focusIdx.set(pi); rowClick.emit(item.row)"
-              >
-                @if (selectable()) {
-                  <td class="ag-td-checkbox" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--surface)')" (click)="$event.stopPropagation()">
-                    <input type="checkbox" class="ag-checkbox" [checked]="selected().has(item.row)" (change)="toggleRow(item.row)" />
-                  </td>
-                }
-                @for (col of displayCols(); track col.key; let ci = $index) {
-                  <td
-                    [attr.data-label]="col.label"
-                    [attr.data-colkey]="col.key"
-                    [class]="dataTdClasses(col, item.row)"
-                    [ngStyle]="dataCellStyle(col.key, grouped() && ci === 0 ? item.depth : 0)"
-                  >
-                    @if (cellTemplateMap().get(col.key); as tpl) {
-                      <ng-container *ngTemplateOutlet="tpl; context: { $implicit: item.row, row: item.row }"></ng-container>
+                  @for (col of displayCols(); track col.key; let ci = $index) {
+                    @if (ci === 0) {
+                      <td
+                        role="gridcell"
+                        [attr.data-ridx]="pi"
+                        [attr.data-cidx]="ci"
+                        [attr.aria-colindex]="ci + 1 + (selectable() ? 1 : 0)"
+                        [tabIndex]="cellTabIndex(pi, ci)"
+                        class="ag-td-group-label"
+                        [class]="pinClass(col.key)"
+                        [ngStyle]="groupLabelStyle(col.key, item.node.depth)"
+                        [style.outline]="isActiveCell(pi, ci) ? '2px solid var(--primary)' : null"
+                        [style.outlineOffset.px]="isActiveCell(pi, ci) ? -2 : null"
+                      >
+                        <span class="ag-group-label-inner">
+                          <svg class="ag-chevron" [class.ag-chevron-open]="expanded().has(item.node.path)" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <polyline points="9,5 16,12 9,19"></polyline>
+                          </svg>
+                          <span class="ag-group-col-label">{{ groupColLabel(item.node.colKey) }}</span>
+                          <span class="ag-group-value">{{ item.node.value }}</span>
+                          <span class="ag-group-count">· {{ item.node.rows.length }}</span>
+                        </span>
+                      </td>
                     } @else {
-                      {{ cellRaw(item.row, col) ?? '—' }}
+                      <td
+                        role="gridcell"
+                        [attr.data-ridx]="pi"
+                        [attr.data-cidx]="ci"
+                        [attr.aria-colindex]="ci + 1 + (selectable() ? 1 : 0)"
+                        [tabIndex]="cellTabIndex(pi, ci)"
+                        class="ag-td-group-agg"
+                        [class]="pinClass(col.key)"
+                        [ngStyle]="pinStyle(col.key, 'var(--bg-2)')"
+                        [style.outline]="isActiveCell(pi, ci) ? '2px solid var(--primary)' : null"
+                        [style.outlineOffset.px]="isActiveCell(pi, ci) ? -2 : null"
+                      >
+                        {{ aggCellText(col, item.node.rows) }}
+                      </td>
                     }
-                  </td>
-                }
-              </tr>
+                  }
+                </tr>
+              } @else {
+                <tr
+                  [attr.data-ridx]="pi"
+                  role="row"
+                  [attr.aria-rowindex]="rowIndexOf(pi)"
+                  [attr.aria-selected]="selectable() ? selected().has(item.row) : null"
+                  class="ag-row"
+                  [class.ag-row-selected]="selectable() && selected().has(item.row)"
+                  [class.ag-row-focused]="activeCell()?.ri === pi"
+                  [class]="rowClassName() ? rowClassName()!(item.row) : ''"
+                  (click)="onDataRowClick($event, pi, item.row)"
+                >
+                  @if (selectable()) {
+                    <td
+                      role="gridcell"
+                      [attr.data-ridx]="pi"
+                      [attr.data-cidx]="-1"
+                      [attr.aria-colindex]="1"
+                      [tabIndex]="cellTabIndex(pi, -1)"
+                      class="ag-td-checkbox"
+                      [class]="checkboxPinClass()"
+                      [ngStyle]="checkboxPinStyle('var(--surface)')"
+                      [style.outline]="isActiveCell(pi, -1) ? '2px solid var(--primary)' : null"
+                      [style.outlineOffset.px]="isActiveCell(pi, -1) ? -2 : null"
+                      (click)="$event.stopPropagation()"
+                    >
+                      <input
+                        type="checkbox"
+                        class="ag-checkbox"
+                        [checked]="selected().has(item.row)"
+                        (change)="toggleRow(item.row)"
+                        aria-label="Seleccionar fila"
+                        tabindex="-1"
+                      />
+                    </td>
+                  }
+                  @for (col of displayCols(); track col.key; let ci = $index) {
+                    <td
+                      [attr.data-label]="col.label"
+                      [attr.data-colkey]="col.key"
+                      [attr.data-ridx]="pi"
+                      [attr.data-cidx]="ci"
+                      [attr.aria-colindex]="ci + 1 + (selectable() ? 1 : 0)"
+                      role="gridcell"
+                      [tabIndex]="cellTabIndex(pi, ci)"
+                      [class]="dataTdClasses(col, item.row)"
+                      [ngStyle]="editCellStyle(col, item.row, pi, ci, item.depth)"
+                      [style.outline]="isActiveCell(pi, ci) && !isEditingThis(pi, ci) ? '2px solid var(--primary)' : null"
+                      [style.outlineOffset.px]="isActiveCell(pi, ci) && !isEditingThis(pi, ci) ? -2 : null"
+                      (dblclick)="onCellDblClick(col, item.row, pi, ci)"
+                    >
+                      @if (isEditingThis(pi, ci)) {
+                        <at-grid-cell-editor
+                          [col]="col"
+                          [row]="item.row"
+                          [initial]="editValueFor(col, item.row)"
+                          [customTpl]="cellEditorTemplateMap().get(col.key) ?? null"
+                          (commit)="onCellEditorCommit(pi, ci, $event)"
+                          (cancel)="cancelEdit(pi, ci)"
+                        ></at-grid-cell-editor>
+                      } @else {
+                        @if (cellTemplateMap().get(col.key); as tpl) {
+                          <ng-container *ngTemplateOutlet="tpl; context: { $implicit: item.row, row: item.row }"></ng-container>
+                        } @else {
+                          {{ cellRaw(item.row, col) ?? '—' }}
+                        }
+                      }
+                    </td>
+                  }
+                </tr>
+              }
             }
           }
+          @if (virtualized() && bottomPad() > 0) {
+            <tr aria-hidden="true" [style.height.px]="bottomPad()">
+              <td [attr.colspan]="colCount()" style="padding: 0; border: 0"></td>
+            </tr>
+          }
           @if (hasFooter() && flatItems().length > 0) {
-            <tr class="ag-footer-row">
+            <tr class="ag-footer-row" role="row">
               @if (selectable()) {
-                <td class="ag-td-checkbox" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--bg-2)')"></td>
+                <td class="ag-td-checkbox" role="gridcell" [class]="checkboxPinClass()" [ngStyle]="checkboxPinStyle('var(--bg-2)')"></td>
               }
               @for (col of displayCols(); track col.key) {
-                <td class="ag-td-footer" [class.ag-td-footer-num]="col.numeric" [class]="pinClass(col.key)" [ngStyle]="pinStyle(col.key, 'var(--bg-2)')">
+                <td class="ag-td-footer" role="gridcell" [class.ag-td-footer-num]="col.numeric" [class]="pinClass(col.key)" [ngStyle]="pinStyle(col.key, 'var(--bg-2)')">
                   @if (footerTemplateMap().get(col.key); as tpl) {
                     <ng-container *ngTemplateOutlet="tpl; context: { $implicit: filteredRows(), rows: filteredRows() }"></ng-container>
                   }
@@ -1071,7 +1214,7 @@ const CHECKBOX_W = 40;
           background: var(--at-pin-bg, var(--surface));
         }
         thead .ag-pin {
-          z-index: 2;
+          z-index: 3;
         }
         .ag-pin-edge-l {
           box-shadow: inset -1px 0 0 var(--border-2);
@@ -1079,6 +1222,23 @@ const CHECKBOX_W = 40;
         .ag-pin-edge-r {
           box-shadow: inset 1px 0 0 var(--border-2);
         }
+
+        /* Header pegajoso: solo cuando la tabla tiene height (virtualizada) —
+           sin viewport acotado, sticky no tiene ancestro con scroll contra el que pegarse. */
+        .ag-table.ag-virtualized thead th {
+          position: sticky;
+          top: 0;
+          z-index: 2;
+          background: var(--bg);
+        }
+        .ag-table.ag-virtualized thead .ag-pin {
+          z-index: 4;
+        }
+      }
+
+      /* ── Edición inline ──────────────────────────────────────────── */
+      .ag-td-editable {
+        cursor: text;
       }
 
       /* ── Tabla → tarjetas en móvil ───────────────────────────────── */
@@ -1305,15 +1465,32 @@ export class AtGridComponent<T> implements OnInit, AfterContentInit {
   selectable = input<boolean>(false);
   exportFileName = input<string>();
   clearSelectionSignal = input<number>();
+  /**
+   * Alto fijo del cuerpo (px). Si se define: la tabla vuelve scrolleable
+   * verticalmente y virtualiza filas (solo renderiza las visibles + colchón),
+   * necesario para datasets grandes. Sin esto, la tabla crece con el contenido
+   * y renderiza todas las filas (como hasta ahora).
+   */
+  height = input<number>();
 
   rowClick = output<T>();
   selectionChange = output<T[]>();
+  /**
+   * Notifica una edición de celda confirmada (`editable` en la columna). La
+   * tabla es controlada — no muta `rows` — el consumidor debe aplicar
+   * `newRow` a su estado. También se dispara por undo/redo (Ctrl+Z/Ctrl+Y).
+   */
+  cellValueChanged = output<AtGridCellValueChanged<T>>();
 
   @ContentChildren(AtGridCellDirective, { descendants: false }) private cellTpls!: QueryList<AtGridCellDirective<T>>;
   @ContentChildren(AtGridFooterDirective, { descendants: false }) private footerTpls!: QueryList<AtGridFooterDirective<T>>;
+  @ContentChildren(AtGridCellEditorDirective, { descendants: false }) private cellEditorTpls!: QueryList<
+    AtGridCellEditorDirective<T>
+  >;
   @ContentChild(AtGridSelectionActionsDirective) selectionActionsTpl?: AtGridSelectionActionsDirective<T>;
 
   @ViewChild('tableEl') private tableRef?: ElementRef<HTMLTableElement>;
+  @ViewChild('wrapEl') private wrapRef?: ElementRef<HTMLDivElement>;
 
   // -- Helpers puros expuestos al template ------------------------------------
   readonly cellRaw = cellRaw;
@@ -1333,7 +1510,11 @@ export class AtGridComponent<T> implements OnInit, AfterContentInit {
   selected = signal<Set<T>>(new Set());
   pageSizeState = signal<number | undefined>(undefined);
   autosizeKey = signal<string | null>(null);
-  focusIdx = signal<number | null>(null);
+  /** Celda con foco de teclado (roving tabindex): `ri` = índice en `pageItems()`, `ci` = índice de columna (`-1` = checkbox). */
+  activeCell = signal<{ ri: number; ci: number } | null>(null);
+  /** Celda en edición (misma indexación que `activeCell`). Nunca es la columna checkbox. */
+  editingCell = signal<{ ri: number; ci: number } | null>(null);
+  scrollTop = signal(0);
   copied = signal(false);
   popover = signal<PopoverState | null>(null);
   setSearch = signal('');
@@ -1345,6 +1526,15 @@ export class AtGridComponent<T> implements OnInit, AfterContentInit {
 
   cellTemplateMap = signal<Map<string, TemplateRef<{ $implicit: T; row: T }>>>(new Map());
   footerTemplateMap = signal<Map<string, TemplateRef<{ $implicit: T[]; rows: T[] }>>>(new Map());
+  cellEditorTemplateMap = signal<
+    Map<
+      string,
+      TemplateRef<{ $implicit: unknown; row: T; onCommit: (value: unknown) => void; onCancel: () => void }>
+    >
+  >(new Map());
+
+  private undoStack: EditHistoryEntry[] = [];
+  private redoStack: EditHistoryEntry[] = [];
 
   // -- Derivados ----------------------------------------------------------
   colMap = computed(() => new Map(this.columns().map((c) => [c.key, c])));
@@ -1559,6 +1749,38 @@ export class AtGridComponent<T> implements OnInit, AfterContentInit {
     return runs;
   });
 
+  // -- Virtualización + navegación celda-a-celda ---------------------------------
+  virtualized = computed(() => this.height() !== undefined);
+  minCi = computed(() => (this.selectable() ? -1 : 0));
+  maxCi = computed(() => this.displayCols().length - 1);
+  colCount = computed(() => this.displayCols().length + (this.selectable() ? 1 : 0));
+  // filas de <thead>: encabezado de columnas + opcional grupo de encabezado (2º nivel) + opcional fila de filtros
+  headerRowCount = computed(() => 1 + (this.headerGroupRuns() ? 1 : 0) + (this.showFilters() ? 1 : 0));
+
+  rowOffsets = computed(() => {
+    const items = this.pageItems();
+    const offsets = new Array<number>(items.length + 1);
+    offsets[0] = 0;
+    for (let i = 0; i < items.length; i++) offsets[i + 1] = offsets[i] + itemHeightOf(items[i]);
+    return offsets;
+  });
+  totalRowsHeight = computed(() => {
+    const o = this.rowOffsets();
+    return o[o.length - 1] ?? 0;
+  });
+  startIdx = computed(() => {
+    if (!this.virtualized()) return 0;
+    return Math.max(0, offsetIndexAt(this.rowOffsets(), this.scrollTop()) - OVERSCAN);
+  });
+  endIdx = computed(() => {
+    const items = this.pageItems();
+    if (!this.virtualized()) return items.length;
+    const viewportH = this.height() ?? 0;
+    return Math.min(items.length, offsetIndexAt(this.rowOffsets(), this.scrollTop() + viewportH) + OVERSCAN + 1);
+  });
+  topPad = computed(() => (this.virtualized() ? this.rowOffsets()[this.startIdx()] : 0));
+  bottomPad = computed(() => (this.virtualized() ? this.totalRowsHeight() - this.rowOffsets()[this.endIdx()] : 0));
+
   constructor() {
     // Persistencia en localStorage (todo el layout, por storageKey).
     effect(() => {
@@ -1609,12 +1831,17 @@ export class AtGridComponent<T> implements OnInit, AfterContentInit {
       { allowSignalWrites: true }
     );
 
-    // El foco de teclado se invalida al cambiar los datos visibles o de página.
+    // El foco de teclado (y el scroll virtual) se invalida al cambiar los datos visibles o de página.
     effect(
       () => {
         this.flatItems();
         this.safePage();
-        this.focusIdx.set(null);
+        this.activeCell.set(null);
+        this.editingCell.set(null);
+        if (this.virtualized()) {
+          this.scrollTop.set(0);
+          if (this.wrapRef) this.wrapRef.nativeElement.scrollTop = 0;
+        }
       },
       { allowSignalWrites: true }
     );
@@ -1642,8 +1869,10 @@ export class AtGridComponent<T> implements OnInit, AfterContentInit {
   ngAfterContentInit(): void {
     this.syncCellTemplates();
     this.syncFooterTemplates();
+    this.syncCellEditorTemplates();
     this.cellTpls.changes.subscribe(() => this.syncCellTemplates());
     this.footerTpls.changes.subscribe(() => this.syncFooterTemplates());
+    this.cellEditorTpls.changes.subscribe(() => this.syncCellEditorTemplates());
   }
 
   private syncCellTemplates(): void {
@@ -1651,6 +1880,9 @@ export class AtGridComponent<T> implements OnInit, AfterContentInit {
   }
   private syncFooterTemplates(): void {
     this.footerTemplateMap.set(new Map(this.footerTpls.map((d) => [d.key, d.tpl])));
+  }
+  private syncCellEditorTemplates(): void {
+    this.cellEditorTemplateMap.set(new Map(this.cellEditorTpls.map((d) => [d.key, d.tpl])));
   }
 
   emptySelection(): Set<T> {
@@ -1867,7 +2099,8 @@ export class AtGridComponent<T> implements OnInit, AfterContentInit {
     this.expanded.set(new Set());
     this.selected.set(new Set());
     this.pageSizeState.set(this.pageSize());
-    this.focusIdx.set(null);
+    this.activeCell.set(null);
+    this.editingCell.set(null);
     this.popover.set(null);
     const key = this.storageKey();
     if (key) clearPersisted(key);
@@ -1917,10 +2150,65 @@ export class AtGridComponent<T> implements OnInit, AfterContentInit {
     }
   }
 
+  // -- Virtualización: scroll + spacer ---------------------------------------------
+  onTableScroll(e: Event): void {
+    if (!this.virtualized()) return;
+    this.scrollTop.set((e.target as HTMLElement).scrollTop);
+  }
+
+  // -- Roving tabindex: foco de celda, ARIA -----------------------------------------
+  onWrapFocus(e: FocusEvent): void {
+    if (e.target === e.currentTarget && this.activeCell() === null && this.pageItems().length) {
+      this.activeCell.set({ ri: 0, ci: this.minCi() });
+    }
+  }
+  onWrapBlur(e: FocusEvent): void {
+    const cur = e.currentTarget as HTMLElement;
+    if (!cur.contains(e.relatedTarget as Node)) this.activeCell.set(null);
+  }
+  cellTabIndex(pi: number, ci: number): number {
+    return this.isActiveCell(pi, ci) ? 0 : -1;
+  }
+  isActiveCell(pi: number, ci: number): boolean {
+    const ac = this.activeCell();
+    return ac?.ri === pi && ac?.ci === ci;
+  }
+  isEditingThis(pi: number, ci: number): boolean {
+    const ec = this.editingCell();
+    return ec?.ri === pi && ec?.ci === ci;
+  }
+  /** Deriva la columna (`data-cidx`) del elemento clickeado, para setear la celda activa en clicks de mouse. */
+  private ciFromTarget(target: EventTarget | null): number {
+    const el = (target as HTMLElement)?.closest?.('[data-cidx]') as HTMLElement | null;
+    const v = el?.dataset['cidx'];
+    return v !== undefined ? Number(v) : this.minCi();
+  }
+  ariaSortFor(col: AtGridColumn<T>): 'ascending' | 'descending' | 'none' | null {
+    if (col.sortable === false) return null;
+    const dir = this.sortDirFor(col.key);
+    return dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none';
+  }
+  /** Posición de fila 1-indexada para `aria-rowindex`, contando las filas de <thead>. */
+  rowIndexOf(pi: number): number {
+    const eff = this.effPageSize();
+    const base = eff ? (this.safePage() - 1) * eff : 0;
+    return base + pi + this.headerRowCount() + 1;
+  }
+  onGroupRowClick(e: MouseEvent, pi: number, node: GroupNode<T>): void {
+    this.activeCell.set({ ri: pi, ci: this.ciFromTarget(e.target) });
+    this.toggleExpand(node.path);
+  }
+  onDataRowClick(e: MouseEvent, pi: number, row: T): void {
+    this.activeCell.set({ ri: pi, ci: this.ciFromTarget(e.target) });
+    this.rowClick.emit(row);
+  }
+
   // -- Navegación por teclado -----------------------------------------------------
-  private scrollRowIntoView(idx: number): void {
+  private scrollCellIntoView(ri: number, ci: number): void {
     requestAnimationFrame(() => {
-      this.tableRef?.nativeElement.querySelector<HTMLElement>(`tr[data-ridx="${idx}"]`)?.scrollIntoView({ block: 'nearest' });
+      const el = this.tableRef?.nativeElement.querySelector<HTMLElement>(`[data-ridx="${ri}"][data-cidx="${ci}"]`);
+      el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      el?.focus({ preventScroll: true });
     });
   }
   onGridKeyDown(e: KeyboardEvent): void {
@@ -1928,30 +2216,37 @@ export class AtGridComponent<T> implements OnInit, AfterContentInit {
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON') return;
     const items = this.pageItems();
     if (!items.length) return;
-    const last = items.length - 1;
-    const move = (delta: number) => {
+    const lastRi = items.length - 1;
+    const minCi = this.minCi();
+    const maxCi = this.maxCi();
+    const ac = this.activeCell();
+    const cur = ac ?? { ri: 0, ci: minCi };
+
+    const moveTo = (ri: number, ci: number) => {
       e.preventDefault();
-      const cur = this.focusIdx();
-      const next = cur === null ? (delta > 0 ? 0 : last) : Math.max(0, Math.min(last, cur + delta));
-      this.focusIdx.set(next);
-      this.scrollRowIntoView(next);
+      const next = { ri: Math.max(0, Math.min(lastRi, ri)), ci: Math.max(minCi, Math.min(maxCi, ci)) };
+      this.activeCell.set(next);
+      this.scrollCellIntoView(next.ri, next.ci);
     };
+
     switch (e.key) {
       case 'ArrowDown':
-        move(1);
+        moveTo(ac === null ? 0 : cur.ri + 1, cur.ci);
         break;
       case 'ArrowUp':
-        move(-1);
+        moveTo(ac === null ? lastRi : cur.ri - 1, cur.ci);
+        break;
+      case 'ArrowRight':
+        moveTo(cur.ri, cur.ci + 1);
+        break;
+      case 'ArrowLeft':
+        moveTo(cur.ri, cur.ci - 1);
         break;
       case 'Home':
-        e.preventDefault();
-        this.focusIdx.set(0);
-        this.scrollRowIntoView(0);
+        moveTo(e.ctrlKey ? 0 : cur.ri, minCi);
         break;
       case 'End':
-        e.preventDefault();
-        this.focusIdx.set(last);
-        this.scrollRowIntoView(last);
+        moveTo(e.ctrlKey ? lastRi : cur.ri, maxCi);
         break;
       case 'PageDown':
         if (this.effPageSize() !== undefined) {
@@ -1966,24 +2261,149 @@ export class AtGridComponent<T> implements OnInit, AfterContentInit {
         }
         break;
       case 'Enter': {
-        const idx = this.focusIdx();
-        if (idx === null) break;
+        if (ac === null) break;
         e.preventDefault();
-        const it = items[idx];
+        const it = items[cur.ri];
         if (it.type === 'group') this.toggleExpand(it.node.path);
         else this.rowClick.emit(it.row);
         break;
       }
       case ' ': {
-        const idx = this.focusIdx();
-        if (idx === null || !this.selectable()) break;
+        if (ac === null || !this.selectable()) break;
         e.preventDefault();
-        const it = items[idx];
+        const it = items[cur.ri];
         if (it.type === 'group') this.toggleRows(it.node.rows);
         else this.toggleRow(it.row);
         break;
       }
+      case 'F2':
+        if (ac === null) break;
+        e.preventDefault();
+        this.startEdit(cur.ri, cur.ci);
+        break;
+      case 'Delete':
+      case 'Backspace': {
+        if (ac === null) break;
+        const it = items[cur.ri];
+        const col = this.displayCols()[cur.ci];
+        if (it?.type !== 'row' || !col || !this.isEditable(col, it.row)) break;
+        e.preventDefault();
+        this.commitEdit(cur.ri, cur.ci, '');
+        break;
+      }
+      case 'z':
+      case 'Z':
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          if (e.shiftKey) this.redo();
+          else this.undo();
+        }
+        break;
+      case 'y':
+      case 'Y':
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          this.redo();
+        }
+        break;
     }
+  }
+
+  // -- Edición inline + undo/redo -------------------------------------------------
+  // La tabla es controlada: nunca muta `rows`. Cada commit dispara `cellValueChanged`
+  // con `newRow`, y es responsabilidad del consumidor aplicarlo a su estado.
+  // Undo/redo re-localiza la fila por `rowIdOf` en los datos ACTUALES (no por referencia
+  // stale): confiable solo si se pasa `rowKey` — sin él, cae a la posición dentro de
+  // `sortedRows`/grupo aplanado, que puede desalinearse si se reordena/filtra entretanto.
+  private rowIdOf(row: T, index: number): string | number {
+    const rk = this.rowKey();
+    return rk ? rk(row, index) : index;
+  }
+  isEditable(col: AtGridColumn<T>, row: T): boolean {
+    return typeof col.editable === 'function' ? col.editable(row) : Boolean(col.editable);
+  }
+  editValueFor(col: AtGridColumn<T>, row: T): string {
+    return col.editValue ? col.editValue(row) : String(cellRaw(row, col) ?? '');
+  }
+  editCellStyle(col: AtGridColumn<T>, row: T, pi: number, ci: number, depth: number): Record<string, string> {
+    const style = this.dataCellStyle(col.key, this.grouped() && ci === 0 ? depth : 0);
+    if (this.isEditingThis(pi, ci)) {
+      style['padding'] = '0';
+      style['overflow'] = 'visible';
+    }
+    return style;
+  }
+  onCellDblClick(col: AtGridColumn<T>, row: T, pi: number, ci: number): void {
+    if (this.isEditable(col, row)) this.startEdit(pi, ci);
+  }
+  onCellEditorCommit(ri: number, ci: number, ev: CellEditorCommit): void {
+    this.commitEditAndMove(ri, ci, ev.raw, ev.move);
+  }
+
+  private applyValueToRow(entry: EditHistoryEntry, valueToApply: unknown): void {
+    for (const item of this.flatItems()) {
+      if (item.type !== 'row') continue;
+      if (this.rowIdOf(item.row, item.index) !== entry.rowId) continue;
+      const col = this.colMap().get(entry.colKey);
+      if (!col) return;
+      const oldValue = cellRaw(item.row, col);
+      const newRow = col.valueSetter
+        ? col.valueSetter(item.row, valueToApply)
+        : ({ ...item.row, [col.key]: valueToApply } as T);
+      this.cellValueChanged.emit({ row: item.row, rowIndex: item.index, col, oldValue, newValue: valueToApply, newRow });
+      return;
+    }
+  }
+  undo(): void {
+    const entry = this.undoStack.pop();
+    if (!entry) return;
+    this.applyValueToRow(entry, entry.oldValue);
+    this.redoStack.push(entry);
+  }
+  redo(): void {
+    const entry = this.redoStack.pop();
+    if (!entry) return;
+    this.applyValueToRow(entry, entry.newValue);
+    this.undoStack.push(entry);
+  }
+  commitEdit(ri: number, ci: number, raw: string): void {
+    const item = this.pageItems()[ri];
+    this.editingCell.set(null);
+    if (!item || item.type !== 'row') return;
+    const col = this.displayCols()[ci];
+    if (!col || !this.isEditable(col, item.row)) return;
+    const { row, index } = item;
+    const oldValue = cellRaw(row, col);
+    const newValue = col.valueParser ? col.valueParser(raw, row) : defaultParseEdit(raw, col);
+    if (Object.is(newValue, oldValue)) return;
+    const newRow = col.valueSetter ? col.valueSetter(row, newValue) : ({ ...row, [col.key]: newValue } as T);
+    this.undoStack.push({ rowId: this.rowIdOf(row, index), colKey: col.key, oldValue, newValue });
+    this.redoStack = [];
+    this.cellValueChanged.emit({ row, rowIndex: index, col, oldValue, newValue, newRow });
+  }
+  commitEditAndMove(ri: number, ci: number, raw: string, move: { dr: number; dc: number } | null): void {
+    this.commitEdit(ri, ci, raw);
+    if (!move) return;
+    const items = this.pageItems();
+    if (!items.length) return;
+    const next = {
+      ri: Math.max(0, Math.min(items.length - 1, ri + move.dr)),
+      ci: Math.max(this.minCi(), Math.min(this.maxCi(), ci + move.dc)),
+    };
+    this.activeCell.set(next);
+    this.scrollCellIntoView(next.ri, next.ci);
+  }
+  cancelEdit(ri: number, ci: number): void {
+    this.editingCell.set(null);
+    this.scrollCellIntoView(ri, ci);
+  }
+  startEdit(ri: number, ci: number): void {
+    const item = this.pageItems()[ri];
+    if (!item || item.type !== 'row') return;
+    const col = this.displayCols()[ci];
+    if (!col || !this.isEditable(col, item.row)) return;
+    this.activeCell.set({ ri, ci });
+    this.editingCell.set({ ri, ci });
   }
 
   // -- Filtros por columna ------------------------------------------------------
@@ -1996,12 +2416,13 @@ export class AtGridComponent<T> implements OnInit, AfterContentInit {
   }
   dateRangeValue(key: string): { from?: string; to?: string } {
     const f = this.filters()[key];
-    return f && typeof f === 'object' && !Array.isArray(f) ? f : {};
+    return f && typeof f === 'object' && !Array.isArray(f) && !isMultiFilterValue(f) ? f : {};
   }
   setDateFilter(key: string, which: 'from' | 'to', v: string): void {
     this.filters.update((f) => {
       const cur = f[key];
-      const range: { from?: string; to?: string } = cur && typeof cur === 'object' && !Array.isArray(cur) ? { ...cur } : {};
+      const range: { from?: string; to?: string } =
+        cur && typeof cur === 'object' && !Array.isArray(cur) && !isMultiFilterValue(cur) ? { ...cur } : {};
       if (v) range[which] = v;
       else delete range[which];
       const next = { ...f };
@@ -2143,7 +2564,8 @@ export class AtGridComponent<T> implements OnInit, AfterContentInit {
   }
   dataTdClasses(col: AtGridColumn<T>, row: T): string {
     const extra = col.cellClass ? col.cellClass(row) : '';
-    return [this.tdClass(col), extra || '', this.pinClass(col.key)].filter(Boolean).join(' ');
+    const editable = this.isEditable(col, row) ? 'ag-td-editable' : '';
+    return [this.tdClass(col), extra || '', this.pinClass(col.key), editable].filter(Boolean).join(' ');
   }
   aggCellText(col: AtGridColumn<T>, rows: T[]): string {
     if (!col.aggregate) return '';

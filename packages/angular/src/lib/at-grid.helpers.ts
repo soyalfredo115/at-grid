@@ -1,4 +1,4 @@
-import type { AtGridColumn, AtGridFilterType, ColumnFilterValue, PersistedState } from './at-grid.types';
+import type { AtGridColumn, AtGridFilterType, ColumnFilterValue, MultiFilterValue, PersistedState } from './at-grid.types';
 
 /**
  * AtGrid — lógica pura (sin Angular, sin DOM salvo localStorage).
@@ -50,15 +50,33 @@ export function filterTypeOf<T>(col: AtGridColumn<T>): AtGridFilterType {
   return col.filterType ?? (col.numeric ? 'number' : 'text');
 }
 
+/** Distingue `MultiFilterValue` del objeto de rango de fechas `{from,to}` (misma forma de JS, distinta forma lógica). */
+export function isMultiFilterValue(f: object): f is MultiFilterValue {
+  return 'text' in f || 'set' in f || 'date' in f;
+}
+
 export function filterIsActive(f: ColumnFilterValue | undefined): boolean {
   if (f === undefined) return false;
   if (typeof f === 'string') return f.trim() !== '';
   if (Array.isArray(f)) return true;
+  if (isMultiFilterValue(f)) {
+    return Boolean((f.text && f.text.trim()) || (f.set && f.set.length) || (f.date && (f.date.from || f.date.to)));
+  }
   return Boolean(f.from || f.to);
 }
 
-function parseNum(s: string): number {
+export function parseNum(s: string): number {
   return Number(s.replace(/,/g, ''));
+}
+
+/** Parser por defecto del editor inline: número si `numeric`/`editorType: 'number'`, si no el string tal cual. */
+export function defaultParseEdit<T>(raw: string, col: AtGridColumn<T>): unknown {
+  const type = col.editorType ?? (col.numeric ? 'number' : 'text');
+  if (type === 'number') {
+    const n = parseNum(raw);
+    return Number.isNaN(n) ? 0 : n;
+  }
+  return raw;
 }
 
 /** Expresiones numéricas: `>1000`, `>=5`, `<0`, `!=10`, `=7`, `100..200` o `1000` (igual). */
@@ -108,6 +126,19 @@ export function rowPassesFilter<T>(row: T, col: AtGridColumn<T>, f: ColumnFilter
     if (!s) return true;
     if (filterTypeOf(col) === 'number') return matchNumberExpr(numVal(row, col), s);
     return filterVal(row, col).toLowerCase().includes(s.toLowerCase());
+  }
+  if (isMultiFilterValue(f)) {
+    if (f.text && f.text.trim()) {
+      if (!filterVal(row, col).toLowerCase().includes(f.text.trim().toLowerCase())) return false;
+    }
+    if (f.set && f.set.length && !f.set.includes(groupVal(row, col))) return false;
+    if (f.date && (f.date.from || f.date.to)) {
+      const d = dateStr(sortVal(row, col)) || dateStr(cellRaw(row, col));
+      if (!d) return false;
+      if (f.date.from && d < f.date.from) return false;
+      if (f.date.to && d > f.date.to) return false;
+    }
+    return true;
   }
   const d = dateStr(sortVal(row, col)) || dateStr(cellRaw(row, col));
   if (!d) return false;
