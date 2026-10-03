@@ -9,7 +9,7 @@ Misma funcionalidad en **React** y **Angular**, con el mismo look, adaptable al 
 | Paquete | Framework | npm |
 |---|---|---|
 | [`@soyalfredo115/at-grid-react`](packages/react) | React 18 | [![npm](https://img.shields.io/npm/v/@soyalfredo115/at-grid-react)](https://www.npmjs.com/package/@soyalfredo115/at-grid-react) |
-| [`@soyalfredo115/at-grid-angular`](packages/angular) | Angular 18/19 (standalone, signals) | [![npm](https://img.shields.io/npm/v/@soyalfredo115/at-grid-angular)](https://www.npmjs.com/package/@soyalfredo115/at-grid-angular) |
+| [`@soyalfredo115/at-grid-angular`](packages/angular) | Angular 18 a 22 (standalone, signals) | [![npm](https://img.shields.io/npm/v/@soyalfredo115/at-grid-angular)](https://www.npmjs.com/package/@soyalfredo115/at-grid-angular) |
 | [`@soyalfredo115/at-grid-types`](packages/types) | tipos compartidos | [![npm](https://img.shields.io/npm/v/@soyalfredo115/at-grid-types)](https://www.npmjs.com/package/@soyalfredo115/at-grid-types) |
 
 ## Instalación
