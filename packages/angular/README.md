@@ -11,9 +11,11 @@ npm install @soyalfredo115/at-grid-angular
 ### Peer dependencies
 
 ```
-@angular/core ^18.0.0 || ^19.0.0
-@angular/common ^18.0.0 || ^19.0.0
+@angular/core ^18.0.0 || ^19.0.0 || ^20.0.0 || ^21.0.0 || ^22.0.0
+@angular/common ^18.0.0 || ^19.0.0 || ^20.0.0 || ^21.0.0 || ^22.0.0
 ```
+
+Se compila con Angular 18 en modo parcial, así que el mismo paquete sirve de la 18 a la 22 (probado con 22.2, sin zone.js).
 
 Sin dependencias de terceros para íconos/overlay: los íconos son `<svg>` inline y el popover usa un `Directive` propio (`AtGridPortalDirective`) para portal a `document.body`, no `@angular/cdk`.
 
@@ -60,7 +62,16 @@ Ver `AtGridCellDirective`, `AtGridFooterDirective`, `AtGridSelectionActionsDirec
 
 ## Estilos
 
-Igual que la versión React: usa clases Tailwind del sistema de diseño Atelier (`paper`, `card`, `line`, `ink`, `clay`, etc.) y estilos `.at-table` / `.at-pin` / `.at-group`. Sin esos tokens/estilos el componente funciona pero pierde su apariencia — hay que portar los tokens y esas clases al proyecto consumidor.
+Los estilos vienen dentro del componente. Los colores se toman de variables CSS del consumidor, con valores por defecto si no existen: `--bg`, `--bg-2`, `--surface`, `--border`, `--border-2`, `--text`, `--text-2`, `--text-3`, `--primary`, `--primary-dark`, `--primary-darker`, `--primary-light`, `--primary-tint`, `--success`, `--radius`, `--radius-sm`, `--radius-xs`, `--shadow-md`, `--ring-primary`. Se definen en `:root` o en un contenedor:
+
+```css
+:root {
+  --primary: #1f4e79;
+  --surface: #fff;
+}
+```
+
+Los botones internos parten de cero (`padding`, `background`, `border`…), así que las reglas globales de `button` de la app no los deforman.
 
 ## Exports
 
